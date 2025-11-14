@@ -596,17 +596,22 @@ IndexToText (int Index)
 		case PM_READ_VERY_FAST:
 			i = GAMESTR_READING;
 			break;
-		case PM_CHANGE_CAPTAIN:
-			i = GAMESTR_CHANGE_CAP;
-			break;
-		case PM_CHANGE_SHIP:
-			i = GAMESTR_CHANGE_SIS;
-			break;
-		default:
-			break;
-	}
+                case PM_CHANGE_CAPTAIN:
+                        i = GAMESTR_CHANGE_CAP;
+                        break;
+                case PM_CHANGE_SHIP:
+                        i = GAMESTR_CHANGE_SIS;
+                        break;
+                case PM_GAME_SUMMARY:
+                {
+                        static const UNICODE summaryLabel[] = "GAME MODE SUMMARY";
+                        return summaryLabel;
+                }
+                default:
+                        break;
+        }
 
-	if (i == -1 || !strlen (GAME_STRING (PLAYMENU_STRING_BASE + i)))
+        if (i == -1 || !strlen (GAME_STRING (PLAYMENU_STRING_BASE + i)))
 		return NULL;
 
 	return GAME_STRING (PLAYMENU_STRING_BASE + i);

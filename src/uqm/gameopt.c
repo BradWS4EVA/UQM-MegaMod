@@ -36,8 +36,12 @@
 #include "libs/log/uqmlog.h"
 #include "comm.h"
 #include "master.h"
+#include "setupmenu.h"
+#include "globdata.h"
+#include "libs/math/random.h"
 
 #include <ctype.h>
+#include <stdio.h>
 
 extern FRAME PlayFrame;
 
@@ -94,11 +98,12 @@ ConfirmSaveLoad (STAMP *MsgStamp)
 
 enum
 {
-	SAVE_GAME = 0,
-	LOAD_GAME,
-	QUIT_GAME,
-	SETTINGS,
-	EXIT_GAME_MENU,
+        SAVE_GAME = 0,
+        LOAD_GAME,
+        QUIT_GAME,
+        SETTINGS,
+        GAME_SUMMARY,
+        EXIT_GAME_MENU,
 };
 
 enum
@@ -1939,7 +1944,191 @@ PickGame (BOOLEAN saving, BOOLEAN fromMainMenu)
 	// Reactivate any background drawing, like planet rotation
 	SetInputCallback (oldCallback);
 
-	return pickState.success;
+        return pickState.success;
+}
+
+static const char *
+DescribeGodMode (int mode)
+{
+        switch (mode)
+        {
+                case OPTVAL_INF_ENERGY:
+                        return "Infinite Energy";
+                case OPTVAL_INF_HEALTH:
+                        return "Infinite Crew";
+                case OPTVAL_FULL_GOD:
+                        return "Full God Mode";
+                default:
+                        return NULL;
+        }
+}
+
+static const char *
+DescribeTimeDilation (int scale)
+{
+        switch (scale)
+        {
+                case OPTVAL_SLOW:
+                        return "Slow";
+                case OPTVAL_FAST:
+                        return "Fast";
+                default:
+                        return NULL;
+        }
+}
+
+static const char *
+DescribeSpaceMusic (int mode)
+{
+        switch (mode)
+        {
+                case OPTVAL_SM_NO_SPOILERS:
+                        return "Sector music (no spoilers)";
+                case OPTVAL_SM_SPOILERS:
+                        return "Sector music (with spoilers)";
+                default:
+                        return NULL;
+        }
+}
+
+static void
+AppendActiveOption (char *message, size_t *len, size_t max,
+                const char *text, int *count)
+{
+        if (*len >= max)
+                return;
+
+        *len += snprintf (message + *len, max - *len, "  - %s\n", text);
+        if (count)
+                (*count)++;
+}
+
+static void
+ShowGameModeSummary (void)
+{
+        char message[4096];
+        size_t len = 0;
+        int activeCount = 0;
+
+#define APPEND_FMT(...) \
+        do { \
+                if (len < sizeof (message)) \
+                        len += snprintf (message + len, sizeof (message) - len, __VA_ARGS__); \
+        } while (0)
+
+        APPEND_FMT ("GAME MODE SUMMARY\n\n");
+        APPEND_FMT ("Difficulty: %s\n", DIF_STR (DIFFICULTY));
+        APPEND_FMT ("Extended Mode: %s\n", BOOL_STR (EXTENDED));
+        APPEND_FMT ("Nomad Mode: %s\n", NOMAD_STR (GLOBAL_SIS (Nomad)));
+        APPEND_FMT ("Seed Type: %s\n", SeedStr ());
+        APPEND_FMT ("Custom Seed: %u\n", (unsigned int)GLOBAL_SIS (Seed));
+        APPEND_FMT ("Ship Randomizer: %s\n",
+                        GLOBAL_SIS (ShipSeed) ? "On" : "Off");
+
+        APPEND_FMT ("\nActive Options:\n");
+
+        {
+#define FLAG_ENTRY(flag, label) { (const int *)&(flag), (label) }
+                static const struct
+                {
+                        const int *value;
+                        const char *label;
+                } activeFlags[] =
+                {
+                        FLAG_ENTRY (optCheatMode, "Cheat mode toggles enabled"),
+                        FLAG_ENTRY (optBubbleWarp, "Bubble Warp enabled"),
+                        FLAG_ENTRY (optUnlockShips, "Escort ships unlocked"),
+                        FLAG_ENTRY (optHeadStart, "Head Start resources"),
+                        FLAG_ENTRY (optUnlockUpgrades, "All lander upgrades unlocked"),
+                        FLAG_ENTRY (optInfiniteRU, "Infinite RUs"),
+                        FLAG_ENTRY (optInfiniteFuel, "Infinite fuel"),
+                        FLAG_ENTRY (optPartialPickup, "Partial lander pickups"),
+                        FLAG_ENTRY (optSubmenu, "Submenu shortcuts enabled"),
+                        FLAG_ENTRY (optInfiniteCredits, "Infinite Melnorme credits"),
+                        FLAG_ENTRY (optCustomBorder, "Custom SIS border"),
+                        FLAG_ENTRY (optNebulae, "Nebulae enabled"),
+                        FLAG_ENTRY (optOrbitingPlanets, "Orbiting planets enabled"),
+                        FLAG_ENTRY (optTexturedPlanets, "Textured planets enabled"),
+                        FLAG_ENTRY (optVolasMusic, "Volasaurus remix pack"),
+                        FLAG_ENTRY (optWholeFuel, "Whole-number fuel units"),
+                        FLAG_ENTRY (optDirectionalJoystick, "Directional joystick controls"),
+                        FLAG_ENTRY (optGameOver, "Game over on flagship loss"),
+                        FLAG_ENTRY (optShipDirectionIP, "Flagship faces travel direction"),
+                        FLAG_ENTRY (optHazardColors, "Hazard color indicators"),
+                        FLAG_ENTRY (optOrzCompFont, "Orz computer font"),
+                        FLAG_ENTRY (optSmartAutoPilot, "Smart autopilot enabled"),
+                        FLAG_ENTRY (optNonStopOscill, "Continuous orbit animation"),
+                        FLAG_ENTRY (optHyperStars, "Animated hyperspace stars"),
+                        FLAG_ENTRY (optNoHQEncounters, "Homeworld encounters disabled"),
+                        FLAG_ENTRY (optDeCleansing, "Kohr-Ah cleansing disabled"),
+                        FLAG_ENTRY (optMeleeObstacles, "Super Melee obstacles"),
+                        FLAG_ENTRY (optShowVisitedStars, "Visited stars highlighted"),
+                        FLAG_ENTRY (optUnscaledStarSystem, "Unscaled star systems"),
+                        FLAG_ENTRY (optSlaughterMode, "Slaughter Mode active"),
+                        FLAG_ENTRY (optAdvancedAutoPilot, "Advanced autopilot enabled"),
+                        FLAG_ENTRY (optMeleeToolTips, "Super Melee tooltips"),
+                        FLAG_ENTRY (optScatterElements, "Scatter planetary elements"),
+                        FLAG_ENTRY (optShowUpgrades, "Show lander upgrades"),
+                        FLAG_ENTRY (optFleetPointSys, "Fleet point system"),
+                };
+#undef FLAG_ENTRY
+
+                size_t i;
+                for (i = 0; i < sizeof activeFlags / sizeof activeFlags[0]; ++i)
+                {
+                        if (*activeFlags[i].value)
+                                AppendActiveOption (message, &len, sizeof (message),
+                                                activeFlags[i].label, &activeCount);
+                }
+        }
+
+        {
+                const char *godMode = DescribeGodMode (optGodModes);
+                if (godMode)
+                {
+                        char buf[64];
+                        snprintf (buf, sizeof (buf), "God Mode: %s", godMode);
+                        AppendActiveOption (message, &len, sizeof (message), buf,
+                                        &activeCount);
+                }
+        }
+
+        {
+                const char *timeLabel = DescribeTimeDilation (timeDilationScale);
+                if (timeLabel)
+                {
+                        char buf[64];
+                        snprintf (buf, sizeof (buf), "Time dilation: %s", timeLabel);
+                        AppendActiveOption (message, &len, sizeof (message), buf,
+                                        &activeCount);
+                }
+        }
+
+        {
+                const char *spaceMusic = DescribeSpaceMusic (optSpaceMusic);
+                if (spaceMusic)
+                {
+                        char buf[96];
+                        snprintf (buf, sizeof (buf), "Space music: %s", spaceMusic);
+                        AppendActiveOption (message, &len, sizeof (message), buf,
+                                        &activeCount);
+                }
+        }
+
+        if (optNebulaeVolume != 16)
+        {
+                char buf[64];
+                snprintf (buf, sizeof (buf), "Nebula volume: %d", optNebulaeVolume);
+                AppendActiveOption (message, &len, sizeof (message), buf,
+                                &activeCount);
+        }
+
+        if (activeCount == 0)
+                APPEND_FMT ("  (None)\n");
+
+#undef APPEND_FMT
+
+        DoPopupWindow (message);
 }
 
 static BOOLEAN
@@ -1973,14 +2162,18 @@ DoGameOptions (MENU_STATE *pMS)
 				else
 					DrawMenuStateStrings(PM_SAVE_GAME, pMS->CurState);
 				break;
-			case SETTINGS:
-				SettingsMenu (FALSE);
-				DrawMenuStateStrings (PM_SAVE_GAME, pMS->CurState);
-				break;
-		}
-	}
-	else
-		DoMenuChooser (pMS, PM_SAVE_GAME);
+                        case SETTINGS:
+                                SettingsMenu (FALSE);
+                                DrawMenuStateStrings (PM_SAVE_GAME, pMS->CurState);
+                                break;
+                        case GAME_SUMMARY:
+                                ShowGameModeSummary ();
+                                DrawMenuStateStrings (PM_SAVE_GAME, pMS->CurState);
+                                break;
+                }
+        }
+        else
+                DoMenuChooser (pMS, PM_SAVE_GAME);
 
 	return TRUE;
 }
