@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sanctuary — An Isometric ARPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="title">
+    <h1>SANCTUARY</h1>
+    <h2>Darkness Falls Over Tristram</h2>
+    <button id="startBtn">Descend into Sanctuary</button>
+    <div class="controls">
+      <b>Left-click</b> to move &nbsp;·&nbsp; <b>Left-click a foe</b> to attack<br />
+      <b>Right-click</b> casts your selected skill at the cursor<br />
+      <b>1–5</b> select / cast skills &nbsp;·&nbsp; <b>Q</b> heal potion &nbsp;·&nbsp; <b>E</b> mana potion<br />
+      <b>I</b> or <b>Tab</b> Inventory &nbsp;·&nbsp; <b>C</b> Character &nbsp;·&nbsp; <b>R</b> respawn<br />
+      Slay the bosses, descend the six levels, and destroy <b>Diablo</b> in the Inner Sanctum.
+    </div>
+    <div class="credit">A self-contained HTML5 Canvas game · no install required</div>
+  </div>
+
+  <!-- engine modules, ordered by dependency (classic scripts, no build step) -->
+  <script src="js/util.js"></script>
+  <script src="js/iso.js"></script>
+  <script src="js/pathfinding.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
