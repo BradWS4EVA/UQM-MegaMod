@@ -189,13 +189,78 @@
       });
       window.addEventListener("mouseup", (e) => { this.input.mouseDown[e.button] = false; });
       window.addEventListener("keydown", (e) => this.onKey(e));
+
+      // ---- touch (mobile) ----
+      const touchPos = (t) => {
+        const r = c.getBoundingClientRect();
+        return { x: t.clientX - r.left, y: t.clientY - r.top };
+      };
+      const setTouch = (t) => {
+        const pos = touchPos(t);
+        this.input.mouse.x = pos.x; this.input.mouse.y = pos.y;
+        const w = Iso.screenToWorld(pos.x, pos.y);
+        this.input.mouse.wx = w.x; this.input.mouse.wy = w.y;
+      };
+      c.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        if (!e.changedTouches.length) return;
+        setTouch(e.changedTouches[0]);
+        this.input.mouseDown[0] = true;
+        this.onTouchDown();
+      }, { passive: false });
+      c.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        if (e.changedTouches.length) setTouch(e.changedTouches[0]);
+      }, { passive: false });
+      const endTouch = (e) => { e.preventDefault(); this.input.mouseDown[0] = false; };
+      c.addEventListener("touchend", endTouch, { passive: false });
+      c.addEventListener("touchcancel", endTouch, { passive: false });
+    }
+
+    // A tap behaves like a left-click: hit UI, else target/move. On the
+    // death / victory screens a tap restarts (no keyboard on phones).
+    onTouchDown() {
+      const m = this.input.mouse;
+      if (this.ui.handleClick(m.x, m.y, 0)) return;
+      if (!this.player.alive || this.victory) { this.restart(); return; }
+      const mob = this.monsterAt(m.wx, m.wy);
+      if (mob) { this.player.target = mob; return; }
+      this.player.moveTo(m.wx, m.wy, this);
+      this._heldRepath = 0;
+    }
+
+    // Cast a skill with automatic aim (mobile / skill-button taps): aim at the
+    // nearest enemy if one is in range, else straight ahead in the facing dir.
+    castSkillAuto(id) {
+      const p = this.player;
+      if (!p.alive || this.victory) return;
+      if (id === "attack") {
+        const mob = this.nearestMonster(12);
+        if (mob) p.target = mob;
+        return;
+      }
+      const mob = this.nearestMonster(16);
+      let tx, ty;
+      if (mob) { tx = mob.x; ty = mob.y; }
+      else { tx = p.x + Math.cos(p.facing) * 5; ty = p.y + Math.sin(p.facing) * 5; }
+      p.cast(id, tx, ty, this);
+    }
+
+    nearestMonster(maxD) {
+      let best = null, bd = maxD * maxD;
+      for (const mo of this.monsters) {
+        if (mo.dead) continue;
+        const d = Util.dist2(this.player.x, this.player.y, mo.x, mo.y);
+        if (d < bd) { bd = d; best = mo; }
+      }
+      return best;
     }
 
     onMouseDown(button) {
       const m = this.input.mouse;
       // UI first
       if (this.ui.handleClick(m.x, m.y, button)) return;
-      if (!this.player.alive || this.victory) return;
+      if (!this.player.alive || this.victory) { this.restart(); return; }
 
       if (button === 2) { // right-click: cast active skill
         this.castActive(m.wx, m.wy);

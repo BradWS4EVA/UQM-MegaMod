@@ -18,17 +18,35 @@ visit http://localhost:8000.)
 
 ## Controls
 
+### Desktop (mouse + keyboard)
+
 | Input | Action |
 |-------|--------|
 | **Left-click ground** | Move (hold to keep moving, Diablo-style). Pathfinds around walls. |
 | **Left-click enemy** | Walk to and attack with your weapon. |
 | **Right-click** | Cast your selected skill at the cursor. |
 | **1 – 5** | Select / instantly cast a skill (Attack, Fireball, Frost Nova, Cleave, Teleport). |
-| **Q** | Drink a Healing Potion. |
-| **E** | Drink a Mana Potion. |
+| **Q** / **E** | Drink a Healing / Mana Potion. |
 | **I** or **Tab** | Toggle Inventory (click items to equip / use). |
 | **C** | Toggle Character sheet (spend stat points with **+**). |
 | **R** | Respawn (after death) / new game (after victory). |
+
+### Phone / tablet (touch)
+
+The game is fully playable on mobile — the HUD scales down to fit and adds
+on-screen buttons:
+
+| Input | Action |
+|-------|--------|
+| **Tap ground** | Move there (hold & drag to keep moving). |
+| **Tap an enemy** | Walk to and attack it. |
+| **Tap a skill button** | Cast that skill, **auto-aimed at the nearest enemy** (or straight ahead). |
+| **Heal / Mana buttons** | Drink potions. |
+| **Bag / Char buttons** | Toggle the Inventory / Character panels (tap items to equip / use). |
+| **Tap anywhere** | Restart on the death / victory screen. |
+
+> Add it to your home screen for a full-screen, app-like experience. Pinch-zoom
+> and scroll are disabled so taps go straight to the game.
 
 ## The goal
 

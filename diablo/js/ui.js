@@ -97,29 +97,31 @@
     }
 
     drawHUD(ctx, W, H, p) {
-      const orbR = 46;
+      // responsive sizing so the HUD fits phones as well as desktops
+      const small = W < 760;
+      const orbR = small ? 32 : 46;
       // ---- XP bar across the very bottom ----
       const xpFrac = Util.clamp(p.xp / p.xpNext, 0, 1);
       ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, H - 8, W, 8);
       ctx.fillStyle = "#caa64a"; ctx.fillRect(0, H - 8, W * xpFrac, 8);
 
       // ---- Health orb (left) ----
-      this.drawOrb(ctx, orbR + 14, H - orbR - 16, orbR, p.hp / p.maxHP, "#b81f1f", "#ff5a4a");
-      ctx.save(); ctx.font = "12px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
-      ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHP}`, orbR + 14, H - orbR - 12);
+      this.drawOrb(ctx, orbR + 10, H - orbR - 14, orbR, p.hp / p.maxHP, "#b81f1f", "#ff5a4a");
+      ctx.save(); ctx.font = (small ? 10 : 12) + "px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
+      ctx.fillText(`${Math.ceil(p.hp)}/${p.maxHP}`, orbR + 10, H - orbR - 10);
       ctx.restore();
 
       // ---- Mana orb (right) ----
-      this.drawOrb(ctx, W - orbR - 14, H - orbR - 16, orbR, p.mana / p.maxMana, "#1f3fb8", "#5a8aff");
-      ctx.save(); ctx.font = "12px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
-      ctx.fillText(`${Math.ceil(p.mana)}/${p.maxMana}`, W - orbR - 14, H - orbR - 12);
+      this.drawOrb(ctx, W - orbR - 10, H - orbR - 14, orbR, p.mana / p.maxMana, "#1f3fb8", "#5a8aff");
+      ctx.save(); ctx.font = (small ? 10 : 12) + "px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
+      ctx.fillText(`${Math.ceil(p.mana)}/${p.maxMana}`, W - orbR - 10, H - orbR - 10);
       ctx.restore();
 
       // ---- Skill bar (center) ----
       const slots = p.hotbar.length;
-      const cell = 50, gap = 6;
+      const cell = small ? 42 : 50, gap = small ? 4 : 6;
       const barW = slots * cell + (slots - 1) * gap;
-      let bx = (W - barW) / 2, by = H - cell - 18;
+      let bx = (W - barW) / 2, by = H - cell - 16;
       for (let i = 0; i < slots; i++) {
         const id = p.hotbar[i], sk = Skills[id];
         const x = bx + i * (cell + gap);
@@ -146,8 +148,11 @@
           ctx.font = "9px serif"; ctx.textAlign = "right"; ctx.fillStyle = "#7bf";
           ctx.fillText(sk.mana, x + cell - 3, by + cell - 4);
         }
+        // tap/click a skill = select it AND cast it (auto-aimed). Works for
+        // both mouse and touch, which makes the game fully playable on phones.
         this.region(x, by, cell, cell, (btn) => {
           if (id !== "attack") this.activeSkill = id;
+          this.game.castSkillAuto(id);
         });
         // hover tooltip for skill
         const m = this.game.input.mouse;
@@ -156,25 +161,40 @@
         }
       }
 
-      // ---- Potion buttons (between health orb and skill bar) ----
+      // ---- Control row above the skill bar: HP / MP potions + Bag / Char ----
       const phpN = p.inventory.filter(i => i.consumable && i.kind === "hp").length;
       const pmpN = p.inventory.filter(i => i.consumable && i.kind === "mp").length;
-      this.drawPotionButton(ctx, bx - 64, by + 6, "#ff5555", phpN, "Q", () => p.usePotion("hp", this.game));
-      this.drawPotionButton(ctx, bx - 64, by + 6 + 22, "#5599ff", pmpN, "E", () => p.usePotion("mp", this.game));
+      const btnW = small ? 40 : 46, btnH = 26, bgap = 6;
+      const rowW = btnW * 4 + bgap * 3;
+      let rx = (W - rowW) / 2, ry = by - btnH - 6;
+      this.drawHudButton(ctx, rx, ry, btnW, btnH, "Heal", "Q", "#ff5555", phpN, () => p.usePotion("hp", this.game));
+      rx += btnW + bgap;
+      this.drawHudButton(ctx, rx, ry, btnW, btnH, "Mana", "E", "#5599ff", pmpN, () => p.usePotion("mp", this.game));
+      rx += btnW + bgap;
+      this.drawHudButton(ctx, rx, ry, btnW, btnH, "Bag", "I", "#caa64a", null, () => { this.showInventory = !this.showInventory; }, this.showInventory);
+      rx += btnW + bgap;
+      this.drawHudButton(ctx, rx, ry, btnW, btnH, "Char", "C", "#caa64a", null, () => { this.showCharacter = !this.showCharacter; }, this.showCharacter);
 
       if (this._skillHover) { this.drawSkillTip(ctx, this._skillHover, W); this._skillHover = null; }
     }
 
-    drawPotionButton(ctx, x, y, col, count, key, fn) {
-      ctx.fillStyle = "rgba(10,10,14,0.85)"; ctx.fillRect(x, y, 18, 18);
-      ctx.strokeStyle = "#554"; ctx.lineWidth = 1; ctx.strokeRect(x, y, 18, 18);
-      ctx.fillStyle = count > 0 ? col : "#444";
-      ctx.beginPath(); ctx.arc(x + 9, y + 10, 5, 0, TWO_PI); ctx.fill();
-      ctx.font = "9px serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "left";
-      ctx.fillText(key, x + 1, y + 8);
-      ctx.textAlign = "right"; ctx.fillStyle = "#ddd";
-      ctx.fillText(count, x + 17, y + 17);
-      this.region(x, y, 18, 18, fn);
+    // a small labeled HUD button; `count` (if not null) shows a badge,
+    // `active` highlights it (used for the Bag/Char toggles).
+    drawHudButton(ctx, x, y, w, h, label, key, col, count, fn, active) {
+      ctx.fillStyle = active ? "rgba(60,46,16,0.92)" : "rgba(10,10,14,0.85)";
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = active ? "#ffd24a" : "#554"; ctx.lineWidth = active ? 2 : 1;
+      ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = count === 0 ? "#777" : col;
+      ctx.font = "11px serif"; ctx.textAlign = "center";
+      ctx.fillText(label, x + w / 2, y + 16);
+      if (count !== null) {
+        ctx.fillStyle = "#ddd"; ctx.font = "9px serif"; ctx.textAlign = "right";
+        ctx.fillText("x" + count, x + w - 3, y + h - 3);
+      }
+      ctx.fillStyle = "#888"; ctx.font = "8px serif"; ctx.textAlign = "left";
+      ctx.fillText(key, x + 3, y + h - 3);
+      this.region(x, y, w, h, fn);
     }
 
     drawOrb(ctx, cx, cy, r, frac, dark, light) {
@@ -278,7 +298,9 @@
 
     // ----- inventory -------------------------------------------------------
     drawInventory(ctx, W, H, p) {
-      const cols = 8, rows = 4, cell = 46, gap = 4;
+      const small = W < 760;
+      const cols = small ? 4 : 8, cell = small ? 44 : 46, gap = 4;
+      const rows = Math.ceil(p.invMax / cols);
       const gw = cols * cell + (cols - 1) * gap;
       const panelW = gw + 40, panelH = rows * cell + (rows - 1) * gap + 110;
       const px = W - panelW - 16, py = 70;
@@ -309,7 +331,7 @@
         }
       }
       ctx.font = "11px serif"; ctx.fillStyle = "#999"; ctx.textAlign = "center";
-      ctx.fillText("Click to equip / use  ·  I or Tab to close", px + panelW / 2, py + panelH - 12);
+      ctx.fillText("Tap an item to equip / use  ·  Bag to close", px + panelW / 2, py + panelH - 12);
     }
 
     // ----- character sheet -------------------------------------------------
